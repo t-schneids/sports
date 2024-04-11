@@ -397,44 +397,7 @@ def main():
     wild_card_divisional_points(divisional, full_dict, True)
     conference_superBowl_points(conference, full_dict)
     print (full_dict[2024])
-#     team_name   = get_team_name(soup)
 
-#     if player_name and team_name:
-#         print(f"Player Name: {player_name}")
-#         print(f"Team Name: {team_name}")
-#     else:
-#         print("Player Name Not Found.")
-
-#     # Get and print the game URLs
-#     game_urls = get_game_urls(url)
-  
-#     # Scrape and print play details for each game
-    
-#     i = 0
-#     temp_list = []
-#     for game_url in game_urls:
-#         leading_ypa = scrape_play_details(game_url, player_name)
-        
-        
-#         if leading_ypa:
-#             temp_list.append(i)
-#         i = i+1
-
-#     # Calculate probabilties
-#     prob_b_given_a, prob_win = get_stat_given_win(temp_list, url)
-
-#     prob_b_given_not_a = 1 - prob_b_given_a
-
-#     prob_lose = 1 - prob_win
-
-#     # Bayes theorem
-#     prob = (prob_win*prob_b_given_a)/ ((prob_win*prob_b_given_a) + prob_lose*prob_b_given_not_a)
-
-#     final_prob = prob * 100
-#     final_prob = round(float(final_prob), 2)
-
-#     print("The probability that the " + team_name + " win given that they lead in yards per passing attempt at the half is " + str(final_prob) + "%")
-   
 
 if __name__ == "__main__":
     main()
