@@ -6,6 +6,7 @@
 import requests
 import re
 from bs4 import BeautifulSoup
+import matplotlib.pyplot as plt
 
 key_dict = {
 "Baltimore Ravens" : "Baltimore",
@@ -343,7 +344,7 @@ def conference_superBowl_points(conference, teams):
                         if int(year[-2:]) > 24 or int(year[-2:]) < 4:
                             continue
                         year = 2000 + int(year[-2:])
-                        get_div_champ_results_for_year(rows, i, year, teams)
+                        get_div_champ_results_for_year(row, year, teams)
 
 # def score_outcomes(year, teams, team1, team2, scores):
 #     rTeam1 = key_dict[team1]
@@ -355,15 +356,18 @@ def conference_superBowl_points(conference, teams):
 #         teams[year][rTeam1]['outcome'] = 4
 #         teams[year][rTeam2]['outcome'] = 8
 
-def get_div_champ_results_for_year(rows, index, year, teams):
-    row = rows[index]
+def get_div_champ_results_for_year(row, year, teams):
     cols = row.find_all("td")
-
-    # loop through each year and get each team from the table 
+    
     team1 = cols[1].find('a').text.lstrip()
-    teams[year][key_dict[team1]]['outcome'] = 8
+    teams[year][key_dict[team1]]['outcome'] = 4
+    
+    if cols[1].find('b') != None:
+        teams[year][key_dict[team1]]['outcome'] = 5
+
+
     team2 = cols[3].find('a').text.lstrip()
-    teams[year][key_dict[team2]]['outcome'] = 4
+    teams[year][key_dict[team2]]['outcome'] = 3
     # score = cols[2]
     # match = re.search(r'(\d+)\D+(\d+)', score.text)
     # print(match.group(1))
@@ -371,14 +375,33 @@ def get_div_champ_results_for_year(rows, index, year, teams):
                                             #    int(match.group(2))])
 
     team3 = cols[5].find('a').text.lstrip()
-    teams[year][key_dict[team3]]['outcome'] = 8
+    teams[year][key_dict[team3]]['outcome'] = 4
+    
+    if cols[5].find('b') != None:
+        teams[year][key_dict[team3]]['outcome'] = 5
+
+
     team4 = cols[7].find('a').text.lstrip()
-    teams[year][key_dict[team4]]['outcome'] = 4
+    teams[year][key_dict[team4]]['outcome'] = 3
+
+
+
+
     # score2 = cols[6]
     # scores2 = score2.text.split('-')
     # match2 = re.search(r'(\d+)\D+(\d+)', score2.text)
     # score_outcomes(year, teams, team3, team4, [int(match2.group(1)), 
                                             #    int(match2.group(2))])
+def plot(full_dict):
+    tuple_list = []
+    for year in full_dict:
+        year_dict = full_dict[year]
+        for team in year_dict:
+            tuple_list.append((abs (year_dict[team]['pct'] - .5), year_dict[team]['outcome']))
+
+    xs, ys = zip(tuple_list)
+    plt.scatter(*zip(*tuple_list))
+    plt.show()
 
 
 def main():
@@ -396,7 +419,8 @@ def main():
     wild_card_divisional_points(wild_card, full_dict, False)
     wild_card_divisional_points(divisional, full_dict, True)
     conference_superBowl_points(conference, full_dict)
-    print (full_dict[2024])
+    # print (full_dict[2024])
+    plot(full_dict)
 #     team_name   = get_team_name(soup)
 
 #     if player_name and team_name:
