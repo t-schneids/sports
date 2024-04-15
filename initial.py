@@ -399,7 +399,6 @@ def plot(full_dict):
         for team in year_dict:
             tuple_list.append((abs (year_dict[team]['pct'] - .5), year_dict[team]['outcome']))
 
-    xs, ys = zip(tuple_list)
     plt.scatter(*zip(*tuple_list))
     plt.show()
 
