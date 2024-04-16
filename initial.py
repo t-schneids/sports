@@ -7,6 +7,7 @@ import requests
 import re
 from bs4 import BeautifulSoup
 import matplotlib.pyplot as plt
+import numpy as np
 
 key_dict = {
 "Baltimore Ravens" : "Baltimore",
@@ -252,7 +253,7 @@ def get_rushing_pcts():
 
 def get_one_year(soup):
     team_percents = {}
-    #print(soup)
+
     schedule_table = soup.find(class_="tr-table datatable scrollable")
 
     rows = schedule_table.find_all('tr')
@@ -265,7 +266,7 @@ def get_one_year(soup):
             name = name_location["data-sort"]
             percent = percent_location["data-sort"]
             realName = key_dict[name]
-            team_percents[realName] = dict(pct = percent, outcome = 0)
+            team_percents[realName] = dict(pct = float(percent), outcome = 0)
 
     return team_percents
 
@@ -393,13 +394,16 @@ def get_div_champ_results_for_year(row, year, teams):
     # score_outcomes(year, teams, team3, team4, [int(match2.group(1)), 
                                             #    int(match2.group(2))])
 def plot(full_dict):
-    tuple_list = []
+    x_rushpcts = []
+    y_outcomes = []
     for year in full_dict:
         year_dict = full_dict[year]
         for team in year_dict:
-            tuple_list.append((abs (year_dict[team]['pct'] - .5), year_dict[team]['outcome']))
+            x_rushpcts.append(abs (year_dict[team]['pct'] - .5))
+            y_outcomes.append(year_dict[team]['outcome'])
 
-    plt.scatter(*zip(*tuple_list))
+    plt.scatter(x_rushpcts, y_outcomes)
+    plt.plot(np.unique(x_rushpcts), np.poly1d(np.polyfit(x_rushpcts, y_outcomes, 1))(np.unique(x_rushpcts)))
     plt.show()
 
 
