@@ -7,6 +7,13 @@ import requests
 import re
 from bs4 import BeautifulSoup
 import matplotlib.pyplot as plt
+import numpy as np
+import pickle
+from sklearn.neural_network import MLPRegressor
+
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold
+from sklearn.svm import SVC
 
 key_dict = {
 "Baltimore Ravens" : "Baltimore",
@@ -114,132 +121,6 @@ key_dict = {
 
 NUM_TEAMS = 32
 
-# get_player_name
-# Parameters: Soup object
-# Purpose: Extracts and returns the team name from the provided BeautifulSoup 
-#          object.
-# def get_player_name(soup):
-    
-#     player_name_location = soup.find(id="info")
-#     player_name_container = player_name_location.find('h1')
-
-#     player_name = player_name_container.find("span").text.strip()
-#     return player_name
-    
-
-# get_game_urls
-# Parameters: The main url to parse
-# Purpose: "Scrapes the partial URL of every box score in the team schedule and 
-#           returns a list of full URLs.
-# Returns a list of partial urls
-# def get_game_urls(url):
-#     page = requests.get(url)
-#     soup = BeautifulSoup(page.content, "html.parser")
-
-#     schedule_table = soup.find(id="last5")
-#     rows = schedule_table.find_all('tr')
-
-#     game_urls = []
-
-#     for row in rows:
-#         dates = row.find_all('th', {"data-stat" : "date"})
-#         if not dates:
-#             continue
-
-#         link_element = dates[0].find('a', href=True)
-
-#         if link_element:
-#             game_href = link_element['href']
-#             url_root = re.match(r'.*\.com', url)[0]
-#             game_url = f'{url_root}{game_href}'
-#             game_urls.append(game_url)
-
-#     return game_urls
-
-# scrape_play_details
-# Parameters: A player name and a url of a game
-# Purpose: To get the passing information from a game up to the half
-# Returns: True if the player's team led in passing yards per attempt
-#          at halftime
-# def scrape_play_details(game_url, player_name):
-#     total_passing_attempts = 0
-#     total_passing_yards = 0
-#     total_passing_attempts_other = 0
-#     total_passing_yards_other = 0
-
-#     # """Scrapes and prints play details for each game."""
-#     game_page = requests.get(game_url)
-#     game_soup = BeautifulSoup(game_page.text.replace('<!--', '').replace('-->', ''), 'html.parser')
-
-#     play_table = game_soup.find(id="pbp")
-
-#     if play_table:
-#         rows = play_table.find_all('tr')
-
-#         for row in rows:
-#             details = row.find_all('td', {"data-stat": "detail"})
-#             if not details:
-#                 continue
-
-#             detail_text = details[0].text.strip().lower()
-
-#             if player_name.lower() in detail_text and 'pass' in detail_text:
-#                 # Extract yards from the detail_text using a regular expression
-#                 yards_match = re.search(r'(-?\d+)', detail_text)
-#                 if yards_match:
-#                     passing_yards_str = yards_match.group(1)
-
-#                     # Convert to integer, considering the negative sign
-#                     passing_yards = int(passing_yards_str)
-
-                
-#                     # Increment passing attempts counter and add passing yards
-#                     total_passing_attempts += 1
-#                     total_passing_yards += passing_yards
-
-#                     # NEEED TO RESET PASSING YARDS AND PASSING ATTEMPTS EACH GAME
-#             elif player_name.lower() not in detail_text and 'pass' in detail_text:
-#                 yards_match = re.search(r'(-?\d+)', detail_text)
-#                 if yards_match:
-#                     passing_yards_str = yards_match.group(1)
-
-#                     # Convert to integer, considering the negative sign
-#                     passing_yards = int(passing_yards_str)
-                
-#                     # Increment passing attempts counter and add passing yards
-#                     total_passing_attempts_other += 1
-#                     total_passing_yards_other += passing_yards
-
-
-
-#             quarter = row.find_all('th', {"data-stat": "quarter"})
-#             quarter_num = quarter[0].text.strip()
-
-#             if quarter_num > "2":
-#                 break
-        
-#         if total_passing_yards/total_passing_attempts > total_passing_yards_other/ total_passing_attempts_other:
-#             return True 
-#         else:
-#             return False 
-#     else:
-#         print("Warning: 'pbp' element not found on the page.")
-#         return False 
-    
-# get_team_name
-# Purpose: Gets a team name from a website
-# def get_team_name(soup):
-#     # """Extracts and returns the team name from the provided BeautifulSoup object."""
-#     team_location = soup.find(id="info")
-#     team_paragraphs = team_location.find_all('p')
-
-#     for team_info in team_paragraphs:
-#         if team_info.find('strong', string='Team'):
-#             team_name_location = team_info.find('a')
-#             if team_name_location:
-#                 return team_name_location.text.strip()
-
-#     return None
 def get_rushing_pcts():
     toReturn = {}
     for i in range (21):
@@ -248,7 +129,7 @@ def get_rushing_pcts():
 
         
         soup = BeautifulSoup(requests.get(url).content, "html.parser")
-        toReturn[int(year)] = get_one_year(soup)
+        toReturn[int(year)] = get_one_year(soup, int(year))
     return toReturn
 
 def get_passing_yards_per_attempt():
@@ -277,9 +158,9 @@ def add_stats_to_dict(dic, stats_dict, stat):
             dic[year][team][stat] = stats_dict[year][team]['pct']
     return dic
 
-def get_one_year(soup):
+def get_one_year(soup, year):
     team_percents = {}
-    #print(soup)
+
     schedule_table = soup.find(class_="tr-table datatable scrollable")
 
     rows = schedule_table.find_all('tr')
@@ -292,7 +173,10 @@ def get_one_year(soup):
             name = name_location["data-sort"]
             percent = percent_location["data-sort"]
             realName = key_dict[name]
-            team_percents[realName] = dict(pct = percent, outcome = 0)
+            if year < 2020:
+                team_percents[realName] = dict(pct = float(percent), outcome = (2 / (32 / 12)))
+            else:
+                 team_percents[realName] = dict(pct = float(percent), outcome = (2 / (32 / 14)))
 
     return team_percents
 
@@ -348,9 +232,13 @@ def get_wild_results_for_year(rows, index, rowSpanVal, year, teams,
                 name = name_location.text.lstrip()
                 realName = key_dict[name]
                 if isDivisional:
-                    teams[year][realName]['outcome'] = 2
+                    teams[year][realName]['outcome'] = 4
+                   
                 else: 
-                    teams[year][realName]['outcome'] = 1
+                    if year < 2020:
+                        teams[year][realName]['outcome'] = 2 
+                    else:
+                        teams[year][realName]['outcome'] = 2
 
 
 
@@ -387,14 +275,15 @@ def get_div_champ_results_for_year(row, year, teams):
     cols = row.find_all("td")
     
     team1 = cols[1].find('a').text.lstrip()
-    teams[year][key_dict[team1]]['outcome'] = 4
+    teams[year][key_dict[team1]]['outcome'] = 16
     
+    # won the superbowl
     if cols[1].find('b') != None:
-        teams[year][key_dict[team1]]['outcome'] = 5
+        teams[year][key_dict[team1]]['outcome'] = 32
 
 
     team2 = cols[3].find('a').text.lstrip()
-    teams[year][key_dict[team2]]['outcome'] = 3
+    teams[year][key_dict[team2]]['outcome'] = 8
     # score = cols[2]
     # match = re.search(r'(\d+)\D+(\d+)', score.text)
     # print(match.group(1))
@@ -402,14 +291,15 @@ def get_div_champ_results_for_year(row, year, teams):
                                             #    int(match.group(2))])
 
     team3 = cols[5].find('a').text.lstrip()
-    teams[year][key_dict[team3]]['outcome'] = 4
+    teams[year][key_dict[team3]]['outcome'] = 16
     
+    # won the superbowl
     if cols[5].find('b') != None:
-        teams[year][key_dict[team3]]['outcome'] = 5
+        teams[year][key_dict[team3]]['outcome'] = 32
 
 
     team4 = cols[7].find('a').text.lstrip()
-    teams[year][key_dict[team4]]['outcome'] = 3
+    teams[year][key_dict[team4]]['outcome'] = 8
 
 
 
@@ -420,72 +310,90 @@ def get_div_champ_results_for_year(row, year, teams):
     # score_outcomes(year, teams, team3, team4, [int(match2.group(1)), 
                                             #    int(match2.group(2))])
 def plot(full_dict):
-    tuple_list = []
+    x_rushpcts = []
+    y_outcomes = []
     for year in full_dict:
         year_dict = full_dict[year]
         for team in year_dict:
-            tuple_list.append((abs (year_dict[team]['pct'] - .5), year_dict[team]['outcome']))
+            x_rushpcts.append(abs (year_dict[team]['pct'] - .5))
+            y_outcomes.append(year_dict[team]['outcome'])
 
-    plt.scatter(*zip(*tuple_list))
+    plt.scatter(x_rushpcts, y_outcomes)
+    plt.plot(np.unique(x_rushpcts), np.poly1d(np.polyfit(x_rushpcts, y_outcomes, 1))(np.unique(x_rushpcts)))
     plt.show()
+
+def train_classifier(X_train, y_train):
+    """
+    Train a support vector machine (SVM) classifier on the training set
+    Returns:
+    clf_out (SVM classifier): Trained SVM classifier
+    """
+    # clf_out = SVC(C=1, kernel="linear", random_state=0)
+    # clf_out.fit(X_train_in, y_train_in)
+
+    model = MLPRegressor(hidden_layer_sizes=(10,), activation='relu', solver='adam', max_iter=1000, random_state=42)
+    model.fit(X_train, y_train)
+
+    # Train the model
+    model.fit(X_train, y_train)
+
+    return model
+
+def make_feat_matrix(full_dict):
+    outerList = []
+    for year in full_dict:
+        year_dict = full_dict[year]
+        for team in year_dict:
+            innerList = []
+            innerList.append(abs (year_dict[team]['pct'] - .5))
+            #innerList.append(year_dict[team]['outcome'])
+            # add other features hear
+            outerList.append(innerList)
+
+    return np.array(outerList)
+
+def make_label_arr(full_dict):
+    outerList = []
+    dict = {.75 : 1, .875 : 1, 2 : 2, 4 : 3, 8 : 4, 16 : 5, 32 : 6}
+    for year in full_dict:
+        year_dict = full_dict[year]
+        for team in year_dict:
+            outerList.append(dict[year_dict[team]['outcome']])
+            
+    return np.array(outerList)
 
 
 def main():
     # Below are just other urls you could run this on
     # BEWARE the rate limited request
     full_dict = {}
+
     # KEYS ARE THE LAST YEAR OF THE SEASON E.G 2023-2024 is coded as 2024
-    full_dict = get_rushing_pcts()
-    full_dict = add_stats_to_dict(full_dict, get_passing_yards_per_attempt(), "opp_ypa")
     
-        
-    # print (full_dict)
-
-    
-    results_url = "https://en.wikipedia.org/wiki/NFL_playoff_results"
-    wild_card, divisional, conference = get_tables(results_url)
-    wild_card_divisional_points(wild_card, full_dict, False)
-    wild_card_divisional_points(divisional, full_dict, True)
-    conference_superBowl_points(conference, full_dict)
+    # full_dict = get_rushing_pcts()
+    # full_dict = add_stats_to_dict(full_dict, get_passing_yards_per_attempt(), "opp_ypa")
+    # results_url = "https://en.wikipedia.org/wiki/NFL_playoff_results"
+    # wild_card, divisional, conference = get_tables(results_url)
+    # wild_card_divisional_points(wild_card, full_dict, False)
+    # wild_card_divisional_points(divisional, full_dict, True)
+    # conference_superBowl_points(conference, full_dict)
     # print (full_dict[2024])
-    plot(full_dict)
-#     team_name   = get_team_name(soup)
+    with open('data_dict', 'rb') as fp:
+        full_dict = pickle.load(fp)
 
-#     if player_name and team_name:
-#         print(f"Player Name: {player_name}")
-#         print(f"Team Name: {team_name}")
-#     else:
-#         print("Player Name Not Found.")
-
-#     # Get and print the game URLs
-#     game_urls = get_game_urls(url)
-  
-#     # Scrape and print play details for each game
+    xs = make_feat_matrix(full_dict)
+    ys = make_label_arr(full_dict)
+    print(len(xs))
+    print(len(ys))
+    model = train_classifier(xs[: 500], ys[: 500])
     
-#     i = 0
-#     temp_list = []
-#     for game_url in game_urls:
-#         leading_ypa = scrape_play_details(game_url, player_name)
-        
-        
-#         if leading_ypa:
-#             temp_list.append(i)
-#         i = i+1
-
-#     # Calculate probabilties
-#     prob_b_given_a, prob_win = get_stat_given_win(temp_list, url)
-
-#     prob_b_given_not_a = 1 - prob_b_given_a
-
-#     prob_lose = 1 - prob_win
-
-#     # Bayes theorem
-#     prob = (prob_win*prob_b_given_a)/ ((prob_win*prob_b_given_a) + prob_lose*prob_b_given_not_a)
-
-#     final_prob = prob * 100
-#     final_prob = round(float(final_prob), 2)
-
-#     print("The probability that the " + team_name + " win given that they lead in yards per passing attempt at the half is " + str(final_prob) + "%")
+     # Evaluate the model on test data
+    y_test = model.predict(xs[500:])
+    print(y_test)
+    #plot(full_dict)
+    # with open('data_dict', 'wb') as fp:
+    #     pickle.dump(full_dict, fp)
+    #     print('dictionary saved successfully to file')
    
 
 if __name__ == "__main__":
