@@ -130,6 +130,19 @@ def get_rushing_pcts():
         toReturn[int(year)] = get_one_year(soup, int(year))
     return toReturn
 
+def get_passing_yards_per_attempt():
+    
+    toReturn = {}
+    for i in range (21):
+        year = str(2024 - i)
+        url = "https://www.teamrankings.com/nfl/stat/opponent-passing-yards-per-game?date=" + year + "-03-1"
+
+        
+        soup = BeautifulSoup(requests.get(url).content, "html.parser")
+        toReturn[int(year)] = get_one_year(soup)
+    print(toReturn)
+    return toReturn
+
 
 def get_one_year(soup, year):
     team_percents = {}
