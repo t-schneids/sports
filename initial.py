@@ -112,6 +112,8 @@ key_dict = {
 
 }
 
+NUM_TEAMS = 32
+
 # get_player_name
 # Parameters: Soup object
 # Purpose: Extracts and returns the team name from the provided BeautifulSoup 
@@ -258,10 +260,22 @@ def get_passing_yards_per_attempt():
 
         
         soup = BeautifulSoup(requests.get(url).content, "html.parser")
-        toReturn[int(year)] = get_one_year(soup)
-    print(toReturn)
+        stats = get_one_year(soup)
+        total = 0
+        for teams in stats.keys():
+            total += float(stats[teams]['pct'])
+        
+        for teams in stats.keys():
+            stats[teams]['pct'] = round((total - float(stats[teams]['pct'])) / (NUM_TEAMS - 1), 4)
+        toReturn[int(year)] = stats
     return toReturn
 
+def add_stats_to_dict(dic, stats_dict, stat):
+    #assumes format to be a dictionary with years as keys and each year has every team with a stat called 'pct'
+    for year in dic.keys():
+        for team in dic[year].keys():
+            dic[year][team][stat] = stats_dict[year][team]['pct']
+    return dic
 
 def get_one_year(soup):
     team_percents = {}
@@ -422,6 +436,8 @@ def main():
     full_dict = {}
     # KEYS ARE THE LAST YEAR OF THE SEASON E.G 2023-2024 is coded as 2024
     full_dict = get_rushing_pcts()
+    full_dict = add_stats_to_dict(full_dict, get_passing_yards_per_attempt(), "opp_ypa")
+    
         
     # print (full_dict)
 
@@ -474,3 +490,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+   
