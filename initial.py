@@ -415,11 +415,11 @@ def make_feat_matrix(full_dict):
 
 def make_label_arr(full_dict):
     outerList = []
-    dict = {.75 : 1, .875 : 1, 2 : 2, 4 : 3, 8 : 4, 16 : 5, 32 : 6}
+    # dict = {.75 : 1, .875 : 1, 2 : 2, 4 : 3, 8 : 4, 16 : 5, 32 : 6}
     for year in full_dict:
         year_dict = full_dict[year]
         for team in year_dict:
-            outerList.append(dict[year_dict[team]['outcome']])
+            outerList.append(year_dict[team]['outcome']]
             
     return np.array(outerList)
 
