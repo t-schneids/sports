@@ -189,6 +189,30 @@ def get_one_year(soup, year):
 
     return team_percents
 
+def get_opp_rushing_per_attempt(sched_dict):
+    toReturn = {}
+    for i in range (21):
+        year = str(2024 - i)
+        url = "https://www.teamrankings.com/nfl/stat/opponent-yards-per-rush-attempt?date=" + year + "-03-1"
+
+        
+        soup = BeautifulSoup(requests.get(url).content, "html.parser")
+        stats = get_one_year(soup, int(year))
+
+        tmp = {}
+        for team in stats.keys():
+            opp_ypa = 0
+            cnt = 0
+            for opp in sched_dict[int(year)][team]:
+                opp_ypa += float(stats[opp]['pct'])
+                cnt += 1
+            tmp[team] = round(opp_ypa / cnt, 4)
+        for team in tmp.keys():
+            stats[team]['pct'] = tmp[team]
+        
+       
+        toReturn[int(year)] = stats
+    return toReturn
 
 
 def get_tables(url):
@@ -390,8 +414,9 @@ def make_feat_matrix(full_dict):
         for team in year_dict:
             innerList = []
             innerList.append(abs (year_dict[team]['pct'] - .5))
-            #innerList.append(year_dict[team]['outcome'])
-            # add other features hear
+            innerList.append(year_dict[team]['op_ypa'])
+            innerList.append(year_dict[team]['op_ypc'])
+
             outerList.append(innerList)
 
     return np.array(outerList)
@@ -406,78 +431,17 @@ def make_label_arr(full_dict):
             
     return np.array(outerList)
 
-
-def get_opp_rushing_per_attempt(sched_dict):
-    toReturn = {}
-    for i in range (21):
-        year = str(2024 - i)
-        url = "https://www.teamrankings.com/nfl/stat/opponent-yards-per-rush-attempt?date=" + year + "-03-1"
-
-        
-        soup = BeautifulSoup(requests.get(url).content, "html.parser")
-        stats = get_one_year(soup, int(year))
-
-        tmp = {}
-        for team in stats.keys():
-            opp_ypa = 0
-            cnt = 0
-            for opp in sched_dict[int(year)][team]:
-                opp_ypa += float(stats[opp]['pct'])
-                cnt += 1
-            tmp[team] = round(opp_ypa / cnt, 4)
-        for team in tmp.keys():
-            stats[team]['pct'] = tmp[team]
-        
-       
-        toReturn[int(year)] = stats
-    return toReturn
-
-
-# def get_opponent_rushing_yards_per_attempt():
-#     toReturn = {}
-#     for i in range(21):
-#         year = str(2024 - i)
-#         url = f"https://www.teamrankings.com/nfl/stat/opponent-yards-per-rush-attempt?date={year}-03-1"
-#         response = requests.get(url)
-#         soup = BeautifulSoup(response.content, "html.parser")
-#         stats = get_one_year(soup, int(year))
-
-#         total = 0
-#         num_teams = len(stats)
-#         for team in stats.keys():
-#             total += float(stats[team]['pct'])
-
-#         for team in stats.keys():
-#             if num_teams > 1:  
-#                 adjusted_avg = (total - float(stats[team]['pct'])) / (num_teams - 1)
-#             else:
-#                 adjusted_avg = float(stats[team]['pct'])
-#             stats[team]['opp_rush_ya'] = round(adjusted_avg, 4)
-
-#         toReturn[int(year)] = stats
-#     return toReturn
-
-
 def main():
     # Below are just other urls you could run this on
     # BEWARE the rate limited request
-    full_dict = {}
-    sched_dict = make_sched_dict()
-    # KEYS ARE THE LAST YEAR OF THE SEASON E.G 2023-2024 is coded as 2024
+    # full_dict = {}
+    # sched_dict = make_sched_dict()
+    # # KEYS ARE THE LAST YEAR OF THE SEASON E.G 2023-2024 is coded as 2024
     
     # full_dict = get_rushing_pcts()
-    with open('data_dict', 'rb') as fp:
-        full_dict = pickle.load(fp)
-
-    # print(full_dict)
         
     # full_dict = add_stats_to_dict(full_dict, get_passing_yards_per_attempt(sched_dict), "opp_ypa")
-    full_dict = add_stats_to_dict(full_dict, get_opp_rushing_per_attempt(sched_dict), "opp_rpa")
-
-    print(full_dict)
-    # with open('data_dict', 'wb') as fp:
-    #     pickle.dump(full_dict, fp)
-    #     print('dictionary saved successfully to file')
+    # full_dict = add_stats_to_dict(full_dict, get_opp_rushing_per_attempt(sched_dict), "opp_ypc")
 
 
     # results_url = "https://en.wikipedia.org/wiki/NFL_playoff_results"
@@ -485,18 +449,24 @@ def main():
     # wild_card_divisional_points(wild_card, full_dict, False)
     # wild_card_divisional_points(divisional, full_dict, True)
     # conference_superBowl_points(conference, full_dict)
+    with open('data_dict', 'rb') as file:
+        full_dict = pickle.load(file)
 
-    print (full_dict)
+    print(full_dict)
+    
+    # with open('data_dict', 'wb') as fp:
+    #     pickle.dump(full_dict, fp)
+    #     print('dictionary saved successfully to file')
 
-    # xs = make_feat_matrix(full_dict)
-    # ys = make_label_arr(full_dict)
-    # print(len(xs))
+    xs = make_feat_matrix(full_dict)
+    ys = make_label_arr(full_dict)
+    print(len(xs))
     # print(len(ys))
-    # model = train_classifier(xs[: 500], ys[: 500])
+    model = train_classifier(xs[: 500], ys[: 500])
     
      # Evaluate the model on test data
-    # y_test = model.predict(xs[500:])
-    # print(y_test)
+    y_test = model.predict(xs[500:])
+    print(y_test)
     #plot(full_dict)
     # with open('data_dict', 'wb') as fp:
     #     pickle.dump(full_dict, fp)
