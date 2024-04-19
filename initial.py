@@ -391,14 +391,6 @@ def plot(full_dict):
     plt.show()
 
 def train_classifier(X_train, y_train):
-    """
-    Train a support vector machine (SVM) classifier on the training set
-    Returns:
-    clf_out (SVM classifier): Trained SVM classifier
-    """
-    # clf_out = SVC(C=1, kernel="linear", random_state=0)
-    # clf_out.fit(X_train_in, y_train_in)
-
     model = MLPRegressor(hidden_layer_sizes=(10,), activation='relu', solver='adam', max_iter=1000, random_state=42)
     model.fit(X_train, y_train)
 
