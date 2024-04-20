@@ -10,10 +10,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 from sklearn.neural_network import MLPRegressor
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import Ridge
 
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
 from sklearn.svm import SVC
+import statsmodels.api as sm
+import pandas as pd
 
 key_dict = {
 "Baltimore Ravens" : "Baltimore",
@@ -183,9 +188,9 @@ def get_one_year(soup, year):
             percent = percent_location["data-sort"]
             realName = key_dict[name]
             if year < 2020:
-                team_percents[realName] = dict(pct = float(percent), outcome = (2 / (32 / 12)))
+                team_percents[realName] = dict(pct = float(percent), outcome = 1)
             else:
-                 team_percents[realName] = dict(pct = float(percent), outcome = (2 / (32 / 14)))
+                 team_percents[realName] = dict(pct = float(percent), outcome = 1)
 
     return team_percents
 
@@ -269,9 +274,10 @@ def get_wild_results_for_year(rows, index, rowSpanVal, year, teams,
                    
                 else: 
                     if year < 2020:
-                        teams[year][realName]['outcome'] = 2 
+                        teams[year][realName]['outcome'] = round(1 / (12 / 32), 3)
                     else:
-                        teams[year][realName]['outcome'] = 2
+                        teams[year][realName]['outcome'] = round(1 / (14 / 32), 3)
+
 
 
 
@@ -294,15 +300,7 @@ def conference_superBowl_points(conference, teams):
                         year = 2000 + int(year[-2:])
                         get_div_champ_results_for_year(row, year, teams)
 
-# def score_outcomes(year, teams, team1, team2, scores):
-#     rTeam1 = key_dict[team1]
-#     rTeam2 = key_dict[team2]
-#     if int(scores[0]) > int(scores[1]):
-#         teams[year][rTeam1]['outcome'] = 8
-#         teams[year][rTeam2]['outcome'] = 4
-#     else: 
-#         teams[year][rTeam1]['outcome'] = 4
-#         teams[year][rTeam2]['outcome'] = 8
+
 def make_sched_dict():
     team_schedules = {}
     for i in range (21):
@@ -323,9 +321,6 @@ def make_sched_dict():
 
             winner = key_dict[winner]
             loser = key_dict[loser]
-
-            # if year == 2024:
-            #     print(winner)
 
             if winner not in team_schedules[year]:
                 team_schedules[year][winner] = []
@@ -352,11 +347,6 @@ def get_div_champ_results_for_year(row, year, teams):
 
     team2 = cols[3].find('a').text.lstrip()
     teams[year][key_dict[team2]]['outcome'] = 8
-    # score = cols[2]
-    # match = re.search(r'(\d+)\D+(\d+)', score.text)
-    # print(match.group(1))
-    # score_outcomes(year, teams, team1, team2, [int(match.group(1)), 
-                                            #    int(match.group(2))])
 
     team3 = cols[5].find('a').text.lstrip()
     teams[year][key_dict[team3]]['outcome'] = 16
@@ -370,27 +360,26 @@ def get_div_champ_results_for_year(row, year, teams):
     teams[year][key_dict[team4]]['outcome'] = 8
 
 
-
-
-    # score2 = cols[6]
-    # scores2 = score2.text.split('-')
-    # match2 = re.search(r'(\d+)\D+(\d+)', score2.text)
-    # score_outcomes(year, teams, team3, team4, [int(match2.group(1)), 
-                                            #    int(match2.group(2))])
 def plot(full_dict):
     x_rushpcts = []
     y_outcomes = []
+    dict = {1 : 1, 2.286 : 2, 2.667 : 2, 4 : 3, 8 : 4, 16 : 5, 32 : 6}
+
     for year in full_dict:
         year_dict = full_dict[year]
         for team in year_dict:
             x_rushpcts.append(abs (year_dict[team]['pct'] - .5))
-            y_outcomes.append(year_dict[team]['outcome'])
+            y_outcomes.append(dict[year_dict[team]['outcome']])
 
     plt.scatter(x_rushpcts, y_outcomes)
-    plt.plot(np.unique(x_rushpcts), np.poly1d(np.polyfit(x_rushpcts, y_outcomes, 1))(np.unique(x_rushpcts)))
+    print(np.poly1d(np.polyfit(x_rushpcts, y_outcomes, 1)))
+    plt.plot(x_rushpcts, np.poly1d(np.polyfit(x_rushpcts, y_outcomes, 1))(x_rushpcts), label= "y = -5.595 x + 2.283")
+    plt.xlabel("Absolute difference in run/pass split from 50%")
+    plt.ylabel("Scored playoff outcome")
+    plt.legend()
     plt.show()
 
-def train_classifier(X_train, y_train):
+def train_neuralnet(X_train, y_train):
     model = MLPRegressor(hidden_layer_sizes=(10,), activation='relu', solver='adam', max_iter=1000, random_state=42)
     model.fit(X_train, y_train)
 
@@ -399,6 +388,37 @@ def train_classifier(X_train, y_train):
 
     return model
 
+def train_svm_classifier(X_train, y_train):
+    # class_weights = {1: 1, 2: 2, 3 : 4, 4 : 8, 5 : 16, 6 : 18}
+    # clf_out = SVC(C=1, random_state=0, class_weight=class_weights)
+    clf_out = RandomForestClassifier(class_weight='balanced')
+    clf_out.fit(X_train, y_train)
+
+    return clf_out
+
+def regression(full_dict):
+    xs = []
+    y_outcomes = []
+    dict = {1 : 1, 2.286 : 2, 2.667 : 2, 4 : 3, 8 : 4, 16 : 5, 32 : 6}
+
+    for year in full_dict:
+        year_dict = full_dict[year]
+        for team in year_dict:
+            inner = []
+            inner.append(abs (year_dict[team]['pct'] - .5))
+            inner.append(year_dict[team]['opp_ypa'])
+            inner.append(year_dict[team]['opp_ypc'])
+            y_outcomes.append(dict[year_dict[team]['outcome']])
+            xs.append(np.array(inner))
+    
+    print(np.array(xs))
+    model = Ridge().fit(np.array(xs), np.array(y_outcomes))
+    print(model.coef_)
+
+    # Step 4: Interpret the results
+
+    
+
 def make_feat_matrix(full_dict):
     outerList = []
     for year in full_dict:
@@ -406,8 +426,8 @@ def make_feat_matrix(full_dict):
         for team in year_dict:
             innerList = []
             innerList.append(abs (year_dict[team]['pct'] - .5))
-            innerList.append(year_dict[team]['op_ypa'])
-            innerList.append(year_dict[team]['op_ypc'])
+            innerList.append(year_dict[team]['opp_ypa'])
+            innerList.append(year_dict[team]['opp_ypc'])
 
             outerList.append(innerList)
 
@@ -415,7 +435,7 @@ def make_feat_matrix(full_dict):
 
 def make_label_arr(full_dict):
     outerList = []
-    dict = {.75 : 1, .875 : 1, 2 : 2, 4 : 3, 8 : 4, 16 : 5, 32 : 6}
+    dict = {1 : 1, 2.286 : 2, 2.667 : 2, 4 : 3, 8 : 4, 16 : 5, 32 : 6}
     for year in full_dict:
         year_dict = full_dict[year]
         for team in year_dict:
@@ -426,9 +446,9 @@ def make_label_arr(full_dict):
 def main():
     # Below are just other urls you could run this on
     # BEWARE the rate limited request
-    # full_dict = {}
+    full_dict = {}
     # sched_dict = make_sched_dict()
-    # # KEYS ARE THE LAST YEAR OF THE SEASON E.G 2023-2024 is coded as 2024
+    # KEYS ARE THE LAST YEAR OF THE SEASON E.G 2023-2024 is coded as 2024
     
     # full_dict = get_rushing_pcts()
         
@@ -444,21 +464,30 @@ def main():
     with open('data_dict', 'rb') as file:
         full_dict = pickle.load(file)
 
-    print(full_dict)
+    # print(full_dict)
     
     # with open('data_dict', 'wb') as fp:
     #     pickle.dump(full_dict, fp)
     #     print('dictionary saved successfully to file')
 
-    xs = make_feat_matrix(full_dict)
-    ys = make_label_arr(full_dict)
-    print(len(xs))
-    # print(len(ys))
-    model = train_classifier(xs[: 500], ys[: 500])
+    ## MODEL MAKING CODE
+    # xs = make_feat_matrix(full_dict)
+    # ys = make_label_arr(full_dict)
+
+    # unique_elements, counts_elements = np.unique(ys, return_counts=True)
+    # print(np.asarray((unique_elements, counts_elements)))
     
-     # Evaluate the model on test data
-    y_test = model.predict(xs[500:])
-    print(y_test)
+    # # model = train_neuralnet(xs[150:], ys[150:])
+    # model = train_svm_classifier(xs[: 500], ys[: 500])
+    
+    # # Evaluate the model on test data
+    # y_test = model.predict(xs[500:])
+    # print(y_test)
+
+    # unique_elements, counts_elements = np.unique(y_test, return_counts=True)
+    # print(np.asarray((unique_elements, counts_elements)))
+
+    regression(full_dict)
     #plot(full_dict)
     # with open('data_dict', 'wb') as fp:
     #     pickle.dump(full_dict, fp)
