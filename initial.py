@@ -9,10 +9,8 @@ from bs4 import BeautifulSoup
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
-from sklearn.neural_network import MLPRegressor
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import LinearRegression
 
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
@@ -372,7 +370,7 @@ def plot(full_dict):
             y_outcomes.append(dict[year_dict[team]['outcome']])
 
     plt.scatter(x_rushpcts, y_outcomes)
-    print(np.poly1d(np.polyfit(x_rushpcts, y_outcomes, 1)))
+    # print(np.poly1d(np.polyfit(x_rushpcts, y_outcomes, 1)))
     plt.plot(x_rushpcts, np.poly1d(np.polyfit(x_rushpcts, y_outcomes, 1))(x_rushpcts), label= "y = -5.595 x + 2.283")
     plt.xlabel("Absolute difference in run/pass split from 50%")
     plt.ylabel("Scored playoff outcome")
@@ -412,7 +410,7 @@ def regression(full_dict):
             xs.append(np.array(inner))
     
     print(np.array(xs))
-    model = Ridge().fit(np.array(xs), np.array(y_outcomes))
+    model = LinearRegression().fit(np.array(xs), np.array(y_outcomes))
     print(model.coef_)
 
     # Step 4: Interpret the results
@@ -443,6 +441,75 @@ def make_label_arr(full_dict):
             
     return np.array(outerList)
 
+def train_test_eval_linear(xs, ys):
+    yearAccs = []
+    yearPlayoffCorrect = []
+    for i in range (21):
+        model = LinearRegression()
+        rangelow = i * 32
+        rangehi = (i * 32) + 32
+        xtrain = np.concatenate([xs[:rangelow], xs[rangehi:]], axis=0)
+        ytrain = np.concatenate([ys[:rangelow], ys[rangehi:]], axis=0)
+        x_test = xs[rangelow:rangehi]
+        y_test = ys[rangelow:rangehi]
+        model.fit(np.array(xtrain), np.array(ytrain))
+        y_pred = model.predict(x_test)
+        print(y_pred)
+        avg = 0
+        num_playoff_correct = 0
+        num_false_negs = 0
+        for i in range (0, 32):
+            if y_test[i] > 1:
+                if y_pred[i] > 1.5:
+                    num_playoff_correct += 1
+            if y_pred[i] > 1.5:
+                if y_test[i] == 1:
+                    num_false_negs += 1
+            diff = abs(y_pred[i] - y_test[i])
+            avg += diff
+
+        yearPlayoffCorrect.append(num_playoff_correct)
+
+        yearAccs.append(avg / 32)
+
+
+
+
+    return yearAccs
+
+def train_test_eval_trees(xs, ys):
+    yearAccs = []
+    yearPlayoffCorrect = []
+    for i in range (21):
+        model = RandomForestClassifier(class_weight='balanced')
+        rangelow = i * 32
+        rangehi = (i * 32) + 32
+        xtrain = np.concatenate([xs[:rangelow], xs[rangehi:]], axis=0)
+        ytrain = np.concatenate([ys[:rangelow], ys[rangehi:]], axis=0)
+        x_test = xs[rangelow:rangehi]
+        y_test = ys[rangelow:rangehi]
+        model.fit(np.array(xtrain), np.array(ytrain))
+        y_pred = model.predict(x_test)
+        print(y_pred)
+        avg = 0
+        num_playoff_correct = 0
+        num_false_negs = 0
+        for i in range (0, 32):
+            if y_test[i] > 1:
+                if y_pred[i] > 1.5:
+                    num_playoff_correct += 1
+            if y_pred[i] > 1.5:
+                if y_test[i] == 1:
+                    num_false_negs += 1
+            diff = abs(y_pred[i] - y_test[i])
+            avg += diff
+
+        yearPlayoffCorrect.append(num_playoff_correct)
+
+        yearAccs.append(avg / 32)
+
+    return yearPlayoffCorrect
+
 def main():
     # Below are just other urls you could run this on
     # BEWARE the rate limited request
@@ -471,11 +538,8 @@ def main():
     #     print('dictionary saved successfully to file')
 
     ## MODEL MAKING CODE
-    # xs = make_feat_matrix(full_dict)
-    # ys = make_label_arr(full_dict)
-
-    # unique_elements, counts_elements = np.unique(ys, return_counts=True)
-    # print(np.asarray((unique_elements, counts_elements)))
+    xs = make_feat_matrix(full_dict)
+    ys = make_label_arr(full_dict)
     
     # # model = train_neuralnet(xs[150:], ys[150:])
     # model = train_svm_classifier(xs[: 500], ys[: 500])
@@ -486,8 +550,56 @@ def main():
 
     # unique_elements, counts_elements = np.unique(y_test, return_counts=True)
     # print(np.asarray((unique_elements, counts_elements)))
+    years_list = [year for year in range(2003, 2024)]
+    # list1 = train_test_eval_linear(xs, ys)
+    list2 = train_test_eval_trees(xs, ys)
 
-    regression(full_dict)
+    # plt.scatter(years_list, list1, color='orange', label="Linear Model")
+    # plt.xlabel("Year")
+    # plt.title("Error for linear model")
+    # plt.ylabel("Average error in predicted outcome")
+    # plt.xticks(years_list, rotation='vertical')
+    # # plt.legend()
+    # plt.show()
+
+    # plt.clf()
+    # plt.scatter(years_list, list2, color='blue', label="Random Forest Classifier")
+    # plt.xlabel("Year")
+    # plt.title("Error for random forest model")
+    # plt.ylabel("Number of playoff teams correctly predicted")
+    # plt.xticks(years_list, rotation='vertical')
+    # plt.show()
+
+    # plt.clf()
+    # plt.scatter(years_list, list1, color='orange', label="Linear Model")
+    # plt.scatter(years_list, list2, color='blue', label="Random Forest Classifier")
+    # plt.xlabel("Year")
+    # plt.title("Error Comparison")
+    # plt.ylabel("Average error in predicted outcome")
+    # plt.xticks(years_list, rotation='vertical')
+    # plt.legend()
+    # plt.show()
+
+    plt.clf()
+    plt.scatter(years_list, list2, color='blue', label="Random Forest Classifier")
+    plt.xlabel("Year")
+    plt.title("Playoff prediction true positives")
+    plt.ylabel("Number of playoff teams correctly predicted")
+    plt.xticks(years_list, rotation='vertical')
+    plt.show()
+
+
+
+
+
+    
+
+
+
+
+    # print(np.mean(list1))
+    print(np.mean(list2))
+    # regression(full_dict)
     #plot(full_dict)
     # with open('data_dict', 'wb') as fp:
     #     pickle.dump(full_dict, fp)
