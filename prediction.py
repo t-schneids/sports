@@ -301,11 +301,13 @@ def make_label_arr(full_dict):
 def main():
     # Below are just other urls you could run this on
     # BEWARE the rate limited request
-    # full_dict = {}
+    full_dict = {}
     # sched_dict = make_sched_dict()
     # # KEYS ARE THE LAST YEAR OF THE SEASON E.G 2023-2024 is coded as 2024
     
-    # full_dict = get_rushing_pcts()
+    full_dict = get_rushing_pcts()
+    playoffResultsObj = PlayoffResults(key_dict)
+    full_dict = playoffResultsObj.get_playoff_results(full_dict)
         
     # full_dict = add_stats_to_dict(full_dict, get_passing_yards_per_attempt(sched_dict), "opp_ypa")
     # full_dict = add_stats_to_dict(full_dict, get_opp_rushing_per_attempt(sched_dict), "opp_ypc")
@@ -315,9 +317,6 @@ def main():
     # with open('data_dict', 'rb') as file:
     #     full_dict = pickle.load(file)
 
-
-    playoffResultsObj = PlayoffResults(key_dict)
-    full_dict = playoffResultsObj.get_playoff_results({})
     print(full_dict)
     
     # with open('data_dict', 'wb') as fp:

@@ -426,23 +426,23 @@ def make_label_arr(full_dict):
 def main():
     # Below are just other urls you could run this on
     # BEWARE the rate limited request
-    # full_dict = {}
+    full_dict = {}
     # sched_dict = make_sched_dict()
     # # KEYS ARE THE LAST YEAR OF THE SEASON E.G 2023-2024 is coded as 2024
     
-    # full_dict = get_rushing_pcts()
+    full_dict = get_rushing_pcts()
         
     # full_dict = add_stats_to_dict(full_dict, get_passing_yards_per_attempt(sched_dict), "opp_ypa")
     # full_dict = add_stats_to_dict(full_dict, get_opp_rushing_per_attempt(sched_dict), "opp_ypc")
 
 
-    # results_url = "https://en.wikipedia.org/wiki/NFL_playoff_results"
-    # wild_card, divisional, conference = get_tables(results_url)
-    # wild_card_divisional_points(wild_card, full_dict, False)
-    # wild_card_divisional_points(divisional, full_dict, True)
-    # conference_superBowl_points(conference, full_dict)
-    with open('data_dict', 'rb') as file:
-        full_dict = pickle.load(file)
+    results_url = "https://en.wikipedia.org/wiki/NFL_playoff_results"
+    wild_card, divisional, conference = get_tables(results_url)
+    wild_card_divisional_points(wild_card, full_dict, False)
+    wild_card_divisional_points(divisional, full_dict, True)
+    conference_superBowl_points(conference, full_dict)
+    # with open('data_dict', 'rb') as file:
+    #     full_dict = pickle.load(file)
 
     print(full_dict)
     

@@ -1,9 +1,17 @@
+# Authors: Theodore Schneider, Andrew Fisher, Henry Gray, Nick Kuranda
+# Purpose: To provide a way to collect playoff results for every NFL team
+#          for the past 21 seasons
+
+
 from bs4 import BeautifulSoup
 import requests
 
 
 class PlayoffResults:
     def __init__(self, key_dict) -> None:
+        """
+        Must take in a key dictionary for all teams for team name consistency.
+        """
         self.key_dict = key_dict
 
     def get_playoff_results(self, full_dict):
@@ -71,6 +79,7 @@ class PlayoffResults:
     # This gets wild card and divisional results for a year despite the name
     def _get_wild_results_for_year(self, rows, index, rowSpanVal, year, teams, 
                                    isDivisional):
+        print(teams)
         for i in range (index, index + rowSpanVal):
             offset = 0 # used to figure out if we are in the first column
             row = rows[i]
@@ -108,11 +117,6 @@ class PlayoffResults:
 
         team2 = cols[3].find('a').text.lstrip()
         teams[year][self.key_dict[team2]]['outcome'] = 8
-        # score = cols[2]
-        # match = re.search(r'(\d+)\D+(\d+)', score.text)
-        # print(match.group(1))
-        # score_outcomes(year, teams, team1, team2, [int(match.group(1)), 
-                                                #    int(match.group(2))])
 
         team3 = cols[5].find('a').text.lstrip()
         teams[year][self.key_dict[team3]]['outcome'] = 16
