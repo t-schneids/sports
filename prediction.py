@@ -5,16 +5,13 @@
 
 from playoffResults import PlayoffResults
 import requests
-import re
 from bs4 import BeautifulSoup
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
-from sklearn.neural_network import MLPRegressor
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LinearRegression
 
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import KFold
-from sklearn.svm import SVC
 
 key_dict = {
 "Baltimore Ravens" : "Baltimore",
@@ -184,9 +181,9 @@ def get_one_year(soup, year):
             percent = percent_location["data-sort"]
             realName = key_dict[name]
             if year < 2020:
-                team_percents[realName] = dict(pct = float(percent), outcome = (2 / (32 / 12)))
+                team_percents[realName] = dict(pct = float(percent), outcome = 1)
             else:
-                 team_percents[realName] = dict(pct = float(percent), outcome = (2 / (32 / 14)))
+                 team_percents[realName] = dict(pct = float(percent), outcome = 1)
 
     return team_percents
 
@@ -265,15 +262,6 @@ def plot(full_dict):
     plt.plot(np.unique(x_rushpcts), np.poly1d(np.polyfit(x_rushpcts, y_outcomes, 1))(np.unique(x_rushpcts)))
     plt.show()
 
-def train_classifier(X_train, y_train):
-    model = MLPRegressor(hidden_layer_sizes=(10,), activation='relu', solver='adam', max_iter=1000, random_state=42)
-    model.fit(X_train, y_train)
-
-    # Train the model
-    model.fit(X_train, y_train)
-
-    return model
-
 def make_feat_matrix(full_dict):
     outerList = []
     for year in full_dict:
@@ -290,13 +278,81 @@ def make_feat_matrix(full_dict):
 
 def make_label_arr(full_dict):
     outerList = []
-    # dict = {.75 : 1, .875 : 1, 2 : 2, 4 : 3, 8 : 4, 16 : 5, 32 : 6}
+    dict = {.75 : 1, .875 : 1, 1 : 1, 2 : 2, 2.286 : 2, 2.667 : 2, 4 : 3, 8 : 4, 16 : 5, 32 : 6}
     for year in full_dict:
         year_dict = full_dict[year]
         for team in year_dict:
-            outerList.append(year_dict[team]['outcome'])
+            outerList.append(dict[year_dict[team]['outcome']])
             
     return np.array(outerList)
+
+def train_test_eval_linear(xs, ys):
+    yearAccs = []
+    yearPlayoffCorrect = []
+    for i in range (21):
+        model = LinearRegression()
+        rangelow = i * 32
+        rangehi = (i * 32) + 32
+        xtrain = np.concatenate([xs[:rangelow], xs[rangehi:]], axis=0)
+        ytrain = np.concatenate([ys[:rangelow], ys[rangehi:]], axis=0)
+        x_test = xs[rangelow:rangehi]
+        y_test = ys[rangelow:rangehi]
+        model.fit(np.array(xtrain), np.array(ytrain))
+        y_pred = model.predict(x_test)
+        # print(y_pred)
+        avg = 0
+        num_playoff_correct = 0
+        num_false_negs = 0
+        for i in range (0, 32):
+            if y_test[i] > 1:
+                if y_pred[i] > 1.5:
+                    num_playoff_correct += 1
+            if y_pred[i] > 1.5:
+                if y_test[i] == 1:
+                    num_false_negs += 1
+            diff = abs(y_pred[i] - y_test[i])
+            avg += diff
+
+        yearPlayoffCorrect.append(num_playoff_correct)
+
+        yearAccs.append(avg / 32)
+
+
+
+
+    return yearAccs
+
+def train_test_eval_trees(xs, ys):
+    yearAccs = []
+    yearPlayoffCorrect = []
+    for i in range (21):
+        model = RandomForestClassifier(class_weight='balanced')
+        rangelow = i * 32
+        rangehi = (i * 32) + 32
+        xtrain = np.concatenate([xs[:rangelow], xs[rangehi:]], axis=0)
+        ytrain = np.concatenate([ys[:rangelow], ys[rangehi:]], axis=0)
+        x_test = xs[rangelow:rangehi]
+        y_test = ys[rangelow:rangehi]
+        model.fit(np.array(xtrain), np.array(ytrain))
+        y_pred = model.predict(x_test)
+        avg = 0
+        num_playoff_correct = 0
+        num_false_negs = 0
+        for i in range (0, 32):
+            if y_test[i] > 1:
+                if y_pred[i] > 1.5:
+                    num_playoff_correct += 1
+            if y_pred[i] > 1.5:
+                if y_test[i] == 1:
+                    num_false_negs += 1
+            diff = abs(y_pred[i] - y_test[i])
+            avg += diff
+
+        yearPlayoffCorrect.append(num_playoff_correct)
+
+        yearAccs.append(avg / 32)
+
+    return yearPlayoffCorrect
 
 def main():
     # Below are just other urls you could run this on
@@ -305,38 +361,64 @@ def main():
     # sched_dict = make_sched_dict()
     # # KEYS ARE THE LAST YEAR OF THE SEASON E.G 2023-2024 is coded as 2024
     
-    full_dict = get_rushing_pcts()
-    playoffResultsObj = PlayoffResults(key_dict)
-    full_dict = playoffResultsObj.get_playoff_results(full_dict)
+    # full_dict = get_rushing_pcts()
+    # playoffResultsObj = PlayoffResults(key_dict)
+    # full_dict = playoffResultsObj.get_playoff_results(full_dict)
         
     # full_dict = add_stats_to_dict(full_dict, get_passing_yards_per_attempt(sched_dict), "opp_ypa")
     # full_dict = add_stats_to_dict(full_dict, get_opp_rushing_per_attempt(sched_dict), "opp_ypc")
 
+    with open('data_dict', 'rb') as file:
+        full_dict = pickle.load(file)
 
-   
-    # with open('data_dict', 'rb') as file:
-    #     full_dict = pickle.load(file)
-
-    print(full_dict)
+    # print(full_dict)
     
     # with open('data_dict', 'wb') as fp:
     #     pickle.dump(full_dict, fp)
     #     print('dictionary saved successfully to file')
 
-    # xs = make_feat_matrix(full_dict)
-    # ys = make_label_arr(full_dict)
-    # print(len(xs))
-    # # print(len(ys))
-    # model = train_classifier(xs[: 500], ys[: 500])
-    
-    #  # Evaluate the model on test data
-    # y_test = model.predict(xs[500:])
-    # print(y_test)
-    #plot(full_dict)
-    # with open('data_dict', 'wb') as fp:
-    #     pickle.dump(full_dict, fp)
-    #     print('dictionary saved successfully to file')
-   
+    xs = make_feat_matrix(full_dict)
+    ys = make_label_arr(full_dict)
+
+    years_list = [year for year in range(2003, 2024)]
+    list1 = train_test_eval_linear(xs, ys)
+    list2 = train_test_eval_trees(xs, ys)
+
+    # plt.scatter(years_list, list1, color='orange', label="Linear Model")
+    # plt.xlabel("Year")
+    # plt.title("Error for linear model")
+    # plt.ylabel("Average error in predicted outcome")
+    # plt.xticks(years_list, rotation='vertical')
+    # # plt.legend()
+    # plt.show()
+
+    # plt.clf()
+    # plt.scatter(years_list, list2, color='blue', label="Random Forest Classifier")
+    # plt.xlabel("Year")
+    # plt.title("Error for random forest model")
+    # plt.ylabel("Number of playoff teams correctly predicted")
+    # plt.xticks(years_list, rotation='vertical')
+    # plt.show()
+
+    # plt.clf()
+    # plt.scatter(years_list, list1, color='orange', label="Linear Model")
+    # plt.scatter(years_list, list2, color='blue', label="Random Forest Classifier")
+    # plt.xlabel("Year")
+    # plt.title("Error Comparison")
+    # plt.ylabel("Average error in predicted outcome")
+    # plt.xticks(years_list, rotation='vertical')
+    # plt.legend()
+    # plt.show()
+
+    plt.clf()
+    plt.scatter(years_list, list2, color='blue', label="Random Forest Classifier")
+    plt.xlabel("Year")
+    plt.title("Playoff prediction true positives")
+    plt.ylabel("Number of playoff teams correctly predicted")
+    plt.xticks(years_list, rotation='vertical')
+    plt.show()
+
+
 
 if __name__ == "__main__":
     main()

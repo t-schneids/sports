@@ -79,7 +79,7 @@ class PlayoffResults:
     # This gets wild card and divisional results for a year despite the name
     def _get_wild_results_for_year(self, rows, index, rowSpanVal, year, teams, 
                                    isDivisional):
-        print(teams)
+        # print(teams)
         for i in range (index, index + rowSpanVal):
             offset = 0 # used to figure out if we are in the first column
             row = rows[i]
@@ -97,11 +97,8 @@ class PlayoffResults:
                     if isDivisional:
                         teams[year][realName]['outcome'] = 4
                     
-                    else: 
-                        if year < 2020:
-                            teams[year][realName]['outcome'] = 2 
-                        else:
-                            teams[year][realName]['outcome'] = 2
+                    else:  
+                        teams[year][realName]['outcome'] = 2 
 
 
     def _get_div_champ_results_for_year(self, row, year, teams):

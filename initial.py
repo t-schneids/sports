@@ -472,9 +472,6 @@ def train_test_eval_linear(xs, ys):
 
         yearAccs.append(avg / 32)
 
-
-
-
     return yearAccs
 
 def train_test_eval_trees(xs, ys):
