@@ -3,20 +3,18 @@
 # Program to analyze the efficiency of NFL teams with their chosen run 
 # percentage based on how far they made it into the playoffs. 
 
+from playoffResults import PlayoffResults
 import requests
 import re
 from bs4 import BeautifulSoup
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LinearRegression
+from sklearn.neural_network import MLPRegressor
 
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
 from sklearn.svm import SVC
-import statsmodels.api as sm
-import pandas as pd
 
 key_dict = {
 "Baltimore Ravens" : "Baltimore",
@@ -186,9 +184,9 @@ def get_one_year(soup, year):
             percent = percent_location["data-sort"]
             realName = key_dict[name]
             if year < 2020:
-                team_percents[realName] = dict(pct = float(percent), outcome = 1)
+                team_percents[realName] = dict(pct = float(percent), outcome = (2 / (32 / 12)))
             else:
-                 team_percents[realName] = dict(pct = float(percent), outcome = 1)
+                 team_percents[realName] = dict(pct = float(percent), outcome = (2 / (32 / 14)))
 
     return team_percents
 
@@ -218,87 +216,6 @@ def get_opp_rushing_per_attempt(sched_dict):
     return toReturn
 
 
-def get_tables(url):
-    soup = BeautifulSoup(requests.get(url).content, "html.parser")
-
-    tables = soup.find_all(class_ = "wikitable sortable")
-    wild_card = tables[0]
-    divisional = tables[1]
-    conference = tables[2]
-   
-    return wild_card, divisional, conference
-
-
-# Get wild card and divisional points for the dictionary
-def wild_card_divisional_points(wild_card, teams, isDivisional):
-    rows = wild_card.find('tbody').find_all('tr')
-
-# Only works because the rows without years have an a and then a b
-    for i in range(len(rows)):
-       row = rows[i]
-       if row:
-            yeartd = row.find('td')
-            if yeartd:
-                yearb = yeartd.find('b')
-                if yearb:
-                    year_location =  yearb.find('a')
-                    if year_location:
-                        year = year_location.text
-                        if int(year[-2:]) > 24 or int(year[-2:]) < 4:
-                            continue
-                        year = 2000 + int(year[-2:])
-                        rowspanVal = int(yeartd['rowspan'])
-                        get_wild_results_for_year(rows, i, rowspanVal, year, teams, isDivisional)
-
-# This gets wild card and divisional results for a year despite the name
-def get_wild_results_for_year(rows, index, rowSpanVal, year, teams, 
-                              isDivisional):
-    for i in range (index, index + rowSpanVal):
-        offset = 0 # used to figure out if we are in the first column
-        row = rows[i]
-        cols = row.find_all("td")
-        if i == index:
-            offset = 1
-
-        # loop through each year and get each team from the table 
-        for j in range (0 + offset, 7 + offset, 2):
-            team_col = cols[j]
-            name_location = team_col.find("a")
-            if name_location:
-                name = name_location.text.lstrip()
-                realName = key_dict[name]
-                if isDivisional:
-                    teams[year][realName]['outcome'] = 4
-                   
-                else: 
-                    if year < 2020:
-                        teams[year][realName]['outcome'] = round(1 / (12 / 32), 3)
-                    else:
-                        teams[year][realName]['outcome'] = round(1 / (14 / 32), 3)
-
-
-
-
-def conference_superBowl_points(conference, teams):
-    rows = conference.find('tbody').find_all('tr')
-
-# Only works because the rows without years have an a and then a b
-    for i in range(len(rows)):
-       row = rows[i]
-       if row:
-            yeartd = row.find('td')
-            if yeartd:
-                yearb = yeartd.find('b')
-                if yearb:
-                    year_location =  yearb.find('a')
-                    if year_location:
-                        year = year_location.text
-                        if int(year[-2:]) > 24 or int(year[-2:]) < 4:
-                            continue
-                        year = 2000 + int(year[-2:])
-                        get_div_champ_results_for_year(row, year, teams)
-
-
 def make_sched_dict():
     team_schedules = {}
     for i in range (21):
@@ -320,6 +237,9 @@ def make_sched_dict():
             winner = key_dict[winner]
             loser = key_dict[loser]
 
+            # if year == 2024:
+            #     print(winner)
+
             if winner not in team_schedules[year]:
                 team_schedules[year][winner] = []
             if loser not in team_schedules[year]:
@@ -332,52 +252,20 @@ def make_sched_dict():
     return team_schedules
 
 
-def get_div_champ_results_for_year(row, year, teams):
-    cols = row.find_all("td")
-    
-    team1 = cols[1].find('a').text.lstrip()
-    teams[year][key_dict[team1]]['outcome'] = 16
-    
-    # won the superbowl
-    if cols[1].find('b') != None:
-        teams[year][key_dict[team1]]['outcome'] = 32
-
-
-    team2 = cols[3].find('a').text.lstrip()
-    teams[year][key_dict[team2]]['outcome'] = 8
-
-    team3 = cols[5].find('a').text.lstrip()
-    teams[year][key_dict[team3]]['outcome'] = 16
-    
-    # won the superbowl
-    if cols[5].find('b') != None:
-        teams[year][key_dict[team3]]['outcome'] = 32
-
-
-    team4 = cols[7].find('a').text.lstrip()
-    teams[year][key_dict[team4]]['outcome'] = 8
-
-
 def plot(full_dict):
     x_rushpcts = []
     y_outcomes = []
-    dict = {1 : 1, 2.286 : 2, 2.667 : 2, 4 : 3, 8 : 4, 16 : 5, 32 : 6}
-
     for year in full_dict:
         year_dict = full_dict[year]
         for team in year_dict:
             x_rushpcts.append(abs (year_dict[team]['pct'] - .5))
-            y_outcomes.append(dict[year_dict[team]['outcome']])
+            y_outcomes.append(year_dict[team]['outcome'])
 
     plt.scatter(x_rushpcts, y_outcomes)
-    # print(np.poly1d(np.polyfit(x_rushpcts, y_outcomes, 1)))
-    plt.plot(x_rushpcts, np.poly1d(np.polyfit(x_rushpcts, y_outcomes, 1))(x_rushpcts), label= "y = -5.595 x + 2.283")
-    plt.xlabel("Absolute difference in run/pass split from 50%")
-    plt.ylabel("Scored playoff outcome")
-    plt.legend()
+    plt.plot(np.unique(x_rushpcts), np.poly1d(np.polyfit(x_rushpcts, y_outcomes, 1))(np.unique(x_rushpcts)))
     plt.show()
 
-def train_neuralnet(X_train, y_train):
+def train_classifier(X_train, y_train):
     model = MLPRegressor(hidden_layer_sizes=(10,), activation='relu', solver='adam', max_iter=1000, random_state=42)
     model.fit(X_train, y_train)
 
@@ -385,37 +273,6 @@ def train_neuralnet(X_train, y_train):
     model.fit(X_train, y_train)
 
     return model
-
-def train_svm_classifier(X_train, y_train):
-    # class_weights = {1: 1, 2: 2, 3 : 4, 4 : 8, 5 : 16, 6 : 18}
-    # clf_out = SVC(C=1, random_state=0, class_weight=class_weights)
-    clf_out = RandomForestClassifier(class_weight='balanced')
-    clf_out.fit(X_train, y_train)
-
-    return clf_out
-
-def regression(full_dict):
-    xs = []
-    y_outcomes = []
-    dict = {1 : 1, 2.286 : 2, 2.667 : 2, 4 : 3, 8 : 4, 16 : 5, 32 : 6}
-
-    for year in full_dict:
-        year_dict = full_dict[year]
-        for team in year_dict:
-            inner = []
-            inner.append(abs (year_dict[team]['pct'] - .5))
-            inner.append(year_dict[team]['opp_ypa'])
-            inner.append(year_dict[team]['opp_ypc'])
-            y_outcomes.append(dict[year_dict[team]['outcome']])
-            xs.append(np.array(inner))
-    
-    print(np.array(xs))
-    model = LinearRegression().fit(np.array(xs), np.array(y_outcomes))
-    print(model.coef_)
-
-    # Step 4: Interpret the results
-
-    
 
 def make_feat_matrix(full_dict):
     outerList = []
@@ -433,7 +290,7 @@ def make_feat_matrix(full_dict):
 
 def make_label_arr(full_dict):
     outerList = []
-    dict = {1 : 1, 2.286 : 2, 2.667 : 2, 4 : 3, 8 : 4, 16 : 5, 32 : 6}
+    # dict = {.75 : 1, .875 : 1, 2 : 2, 4 : 3, 8 : 4, 16 : 5, 32 : 6}
     for year in full_dict:
         year_dict = full_dict[year]
         for team in year_dict:
@@ -441,111 +298,40 @@ def make_label_arr(full_dict):
             
     return np.array(outerList)
 
-def train_test_eval_linear(xs, ys):
-    yearAccs = []
-    yearPlayoffCorrect = []
-    for i in range (21):
-        model = LinearRegression()
-        rangelow = i * 32
-        rangehi = (i * 32) + 32
-        xtrain = np.concatenate([xs[:rangelow], xs[rangehi:]], axis=0)
-        ytrain = np.concatenate([ys[:rangelow], ys[rangehi:]], axis=0)
-        x_test = xs[rangelow:rangehi]
-        y_test = ys[rangelow:rangehi]
-        model.fit(np.array(xtrain), np.array(ytrain))
-        y_pred = model.predict(x_test)
-        print(y_pred)
-        avg = 0
-        num_playoff_correct = 0
-        num_false_negs = 0
-        for i in range (0, 32):
-            if y_test[i] > 1:
-                if y_pred[i] > 1.5:
-                    num_playoff_correct += 1
-            if y_pred[i] > 1.5:
-                if y_test[i] == 1:
-                    num_false_negs += 1
-            diff = abs(y_pred[i] - y_test[i])
-            avg += diff
-
-        yearPlayoffCorrect.append(num_playoff_correct)
-
-        yearAccs.append(avg / 32)
-
-
-
-
-    return yearAccs
-
-def train_test_eval_trees(xs, ys):
-    yearAccs = []
-    yearPlayoffCorrect = []
-    for i in range (21):
-        model = RandomForestClassifier(class_weight='balanced')
-        rangelow = i * 32
-        rangehi = (i * 32) + 32
-        xtrain = np.concatenate([xs[:rangelow], xs[rangehi:]], axis=0)
-        ytrain = np.concatenate([ys[:rangelow], ys[rangehi:]], axis=0)
-        x_test = xs[rangelow:rangehi]
-        y_test = ys[rangelow:rangehi]
-        model.fit(np.array(xtrain), np.array(ytrain))
-        y_pred = model.predict(x_test)
-        print(y_pred)
-        avg = 0
-        num_playoff_correct = 0
-        num_false_negs = 0
-        for i in range (0, 32):
-            if y_test[i] > 1:
-                if y_pred[i] > 1.5:
-                    num_playoff_correct += 1
-            if y_pred[i] > 1.5:
-                if y_test[i] == 1:
-                    num_false_negs += 1
-            diff = abs(y_pred[i] - y_test[i])
-            avg += diff
-
-        yearPlayoffCorrect.append(num_playoff_correct)
-
-        yearAccs.append(avg / 32)
-
-    return yearPlayoffCorrect
-
 def main():
     # Below are just other urls you could run this on
     # BEWARE the rate limited request
     full_dict = {}
     # sched_dict = make_sched_dict()
-    # KEYS ARE THE LAST YEAR OF THE SEASON E.G 2023-2024 is coded as 2024
+    # # KEYS ARE THE LAST YEAR OF THE SEASON E.G 2023-2024 is coded as 2024
     
     full_dict = get_rushing_pcts()
+    playoffResultsObj = PlayoffResults(key_dict)
+    full_dict = playoffResultsObj.get_playoff_results(full_dict)
         
     # full_dict = add_stats_to_dict(full_dict, get_passing_yards_per_attempt(sched_dict), "opp_ypa")
     # full_dict = add_stats_to_dict(full_dict, get_opp_rushing_per_attempt(sched_dict), "opp_ypc")
 
 
-    results_url = "https://en.wikipedia.org/wiki/NFL_playoff_results"
-    wild_card, divisional, conference = get_tables(results_url)
-    wild_card_divisional_points(wild_card, full_dict, False)
-    wild_card_divisional_points(divisional, full_dict, True)
-    conference_superBowl_points(conference, full_dict)
+   
     # with open('data_dict', 'rb') as file:
     #     full_dict = pickle.load(file)
 
-    # print(full_dict)
+    print(full_dict)
     
     # with open('data_dict', 'wb') as fp:
     #     pickle.dump(full_dict, fp)
     #     print('dictionary saved successfully to file')
 
-    xs = make_feat_matrix(full_dict)
-    ys = make_label_arr(full_dict)
-    print(len(xs))
-    # print(len(ys))
-    model = train_classifier(xs[: 500], ys[: 500])
+    # xs = make_feat_matrix(full_dict)
+    # ys = make_label_arr(full_dict)
+    # print(len(xs))
+    # # print(len(ys))
+    # model = train_classifier(xs[: 500], ys[: 500])
     
-     # Evaluate the model on test data
-    y_test = model.predict(xs[500:])
-    print(y_test)
+    #  # Evaluate the model on test data
+    # y_test = model.predict(xs[500:])
+    # print(y_test)
     #plot(full_dict)
     # with open('data_dict', 'wb') as fp:
     #     pickle.dump(full_dict, fp)
