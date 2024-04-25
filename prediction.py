@@ -262,29 +262,6 @@ def plot(full_dict):
     plt.plot(np.unique(x_rushpcts), np.poly1d(np.polyfit(x_rushpcts, y_outcomes, 1))(np.unique(x_rushpcts)))
     plt.show()
 
-def make_feat_matrix(full_dict):
-    outerList = []
-    for year in full_dict:
-        year_dict = full_dict[year]
-        for team in year_dict:
-            innerList = []
-            innerList.append(abs (year_dict[team]['pct'] - .5))
-            innerList.append(year_dict[team]['opp_ypa'])
-            innerList.append(year_dict[team]['opp_ypc'])
-
-            outerList.append(innerList)
-
-    return np.array(outerList)
-
-def make_label_arr(full_dict):
-    outerList = []
-    dict = {.75 : 1, .875 : 1, 1 : 1, 2 : 2, 2.286 : 2, 2.667 : 2, 4 : 3, 8 : 4, 16 : 5, 32 : 6}
-    for year in full_dict:
-        year_dict = full_dict[year]
-        for team in year_dict:
-            outerList.append(dict[year_dict[team]['outcome']])
-            
-    return np.array(outerList)
 
 def main():
     # Below are just other urls you could run this on
