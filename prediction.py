@@ -234,9 +234,6 @@ def make_sched_dict():
             winner = key_dict[winner]
             loser = key_dict[loser]
 
-            # if year == 2024:
-            #     print(winner)
-
             if winner not in team_schedules[year]:
                 team_schedules[year][winner] = []
             if loser not in team_schedules[year]:
@@ -248,19 +245,6 @@ def make_sched_dict():
             
     return team_schedules
 
-
-def plot(full_dict):
-    x_rushpcts = []
-    y_outcomes = []
-    for year in full_dict:
-        year_dict = full_dict[year]
-        for team in year_dict:
-            x_rushpcts.append(abs (year_dict[team]['pct'] - .5))
-            y_outcomes.append(year_dict[team]['outcome'])
-
-    plt.scatter(x_rushpcts, y_outcomes)
-    plt.plot(np.unique(x_rushpcts), np.poly1d(np.polyfit(x_rushpcts, y_outcomes, 1))(np.unique(x_rushpcts)))
-    plt.show()
 
 
 def main():
@@ -280,6 +264,7 @@ def main():
     with open('data_dict', 'rb') as file:
         full_dict = pickle.load(file)
 
+
     # print(full_dict)
     
     # with open('data_dict', 'wb') as fp:
@@ -289,11 +274,13 @@ def main():
     xs = make_feat_matrix(full_dict)
     ys = make_label_arr(full_dict)
 
-    years_list = [year for year in range(2003, 2024)]
-    list1 = train_test_eval_linear(xs, ys)
-    list2 = train_test_eval_trees(xs, ys)
 
-    # plt.scatter(years_list, list1, color='orange', label="Linear Model")
+
+    years_list = [year for year in range(2003, 2024)]
+    linear_results = train_test_eval_linear(xs, ys)
+    trees_results = train_test_eval_trees(xs, ys)
+
+    # plt.scatter(years_list, linear_results, color='orange', label="Linear Model")
     # plt.xlabel("Year")
     # plt.title("Error for linear model")
     # plt.ylabel("Average error in predicted outcome")
@@ -302,7 +289,7 @@ def main():
     # plt.show()
 
     # plt.clf()
-    # plt.scatter(years_list, list2, color='blue', label="Random Forest Classifier")
+    # plt.scatter(years_list, trees_results, color='blue', label="Random Forest Classifier")
     # plt.xlabel("Year")
     # plt.title("Error for random forest model")
     # plt.ylabel("Number of playoff teams correctly predicted")
@@ -310,8 +297,8 @@ def main():
     # plt.show()
 
     # plt.clf()
-    # plt.scatter(years_list, list1, color='orange', label="Linear Model")
-    # plt.scatter(years_list, list2, color='blue', label="Random Forest Classifier")
+    # plt.scatter(years_list, linear_results, color='orange', label="Linear Model")
+    # plt.scatter(years_list, trees_results, color='blue', label="Random Forest Classifier")
     # plt.xlabel("Year")
     # plt.title("Error Comparison")
     # plt.ylabel("Average error in predicted outcome")
@@ -320,7 +307,7 @@ def main():
     # plt.show()
 
     plt.clf()
-    plt.scatter(years_list, list2, color='blue', label="Random Forest Classifier")
+    plt.scatter(years_list, trees_results, color='blue', label="Random Forest Classifier")
     plt.xlabel("Year")
     plt.title("Playoff prediction true positives")
     plt.ylabel("Number of playoff teams correctly predicted")
