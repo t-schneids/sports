@@ -24,3 +24,7 @@ adding all to the season-teams stat dictionary in the overall dictionary
 
 models.py contains code used for our analysis including the original linear analysis
 and analysis of linear and random forest models with added features
+
+For speed purposes and to avoid rate-limited request errors, all of our 
+scraped data is serialized with pickle and stored in data_dict. The commented
+out function calls in main can be brought back in if live scraping is desired.
